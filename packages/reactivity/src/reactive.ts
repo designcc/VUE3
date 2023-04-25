@@ -6,7 +6,6 @@ import { ReactiveFlags, mutableHandlers } from "./baseHandler";
 // 代理对象再次代理可以直接返回
 const reactiveMap = new WeakMap()
 export function reactive(target) {
-
   if(!isObject(target)){
     return
   }

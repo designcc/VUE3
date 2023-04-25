@@ -9,12 +9,15 @@
 <body>
   <script src="./reactivity.global.js"></script>
   <script>
-    const {reactive} = VueReactivity
+    const {reactive,effect} = VueReactivity
     const data = reactive({
       name: 'xb'
     })
-    console.log(data)
-    const data1 = reactive(data)
+    debugger
+    effect(() => {
+      debugger
+      data.name
+    })
   </script>
 </body>
 </html>
