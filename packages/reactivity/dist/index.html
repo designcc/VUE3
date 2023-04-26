@@ -10,16 +10,35 @@
   <div class="app"></div>
   <script src="./reactivity.global.js"></script>
   <script>
+    let waiting = false
     const {reactive,effect} = VueReactivity
     const data = reactive({
       name: 'xb'
     })
-    effect(() => {
+    const runner = effect(() => {
       document.querySelector('.app').innerHTML = `姓名：${data.name}`
+    },{
+      scheduler(){ // 自定义调度器 设置何时更新
+        console.log('run');
+        if(!waiting) {
+          waiting = true
+          setTimeout(() => {
+            debugger
+            runner();
+            waiting = false
+          },2000)
+        }
+      }
     })
-    setTimeout(()=> {
-      data.name= 'lz'
-    },1000)
+    data.name = 1
+    data.name = 2
+
+    data.name = 3
+
+    data.name = 4
+
+
+    console.log(runner.effect);
   </script>
 </body>
 </html>

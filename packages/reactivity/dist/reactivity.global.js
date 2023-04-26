@@ -31,12 +31,21 @@ var VueReactivity = (() => {
 
   // packages/reactivity/src/effect.ts
   var activeEffect = void 0;
+  function cleanupEffect(effect2) {
+    const { deps } = effect2;
+    for (let i = 0; i < deps.length; i++) {
+      deps[i].delete(effect2);
+    }
+    effect2.deps.length = 0;
+  }
   var ReactiveEffect = class {
-    constructor(fn) {
+    constructor(fn, scheduler) {
       this.fn = fn;
+      this.scheduler = scheduler;
       this.active = true;
       //这个是effect默认激活状态
       this.parent = null;
+      //生成父子结构
       this.deps = [];
     }
     run() {
@@ -46,15 +55,25 @@ var VueReactivity = (() => {
       try {
         this.parent = activeEffect;
         activeEffect = this;
+        cleanupEffect(this);
         return this.fn();
       } finally {
         activeEffect = this.parent;
       }
     }
+    stop() {
+      if (this.active) {
+        this.active = false;
+        cleanupEffect(this);
+      }
+    }
   };
-  function effect(fn) {
-    const _effect = new ReactiveEffect(fn);
+  function effect(fn, options = {}) {
+    const _effect = new ReactiveEffect(fn, options.scheduler);
     _effect.run();
+    const runner = _effect.run.bind(_effect);
+    runner.effect = _effect;
+    return runner;
   }
   var targetMap = /* @__PURE__ */ new WeakMap();
   function track(target, type, key) {
@@ -78,11 +97,19 @@ var VueReactivity = (() => {
     const depsMap = targetMap.get(target);
     if (!depsMap)
       return;
-    const effect2 = depsMap.get(key);
-    effect2 && effect2.forEach((effect3) => {
-      if (effect3 !== activeEffect)
-        effect3.run();
-    });
+    let effects = depsMap.get(key);
+    if (effects) {
+      effects = new Set(effects);
+      effects.forEach((effect2) => {
+        if (effect2 !== activeEffect) {
+          if (effect2.scheduler) {
+            effect2.scheduler();
+          } else {
+            effect2.run();
+          }
+        }
+      });
+    }
   }
 
   // packages/reactivity/src/baseHandler.ts
