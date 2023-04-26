@@ -37,6 +37,7 @@ var VueReactivity = (() => {
       this.active = true;
       //这个是effect默认激活状态
       this.parent = null;
+      this.deps = [];
     }
     run() {
       if (!this.active) {
@@ -55,6 +56,34 @@ var VueReactivity = (() => {
     const _effect = new ReactiveEffect(fn);
     _effect.run();
   }
+  var targetMap = /* @__PURE__ */ new WeakMap();
+  function track(target, type, key) {
+    if (!activeEffect)
+      return;
+    let depsMap = targetMap.get(target);
+    if (!depsMap) {
+      targetMap.set(target, depsMap = /* @__PURE__ */ new Map());
+    }
+    let dep = depsMap.get(key);
+    if (!dep) {
+      depsMap.set(key, dep = /* @__PURE__ */ new Set());
+    }
+    let shouldTrack = !dep.has(activeEffect);
+    if (shouldTrack) {
+      dep.add(activeEffect);
+      activeEffect.deps.push(dep);
+    }
+  }
+  function trigger(target, type, key, value, oldValue) {
+    const depsMap = targetMap.get(target);
+    if (!depsMap)
+      return;
+    const effect2 = depsMap.get(key);
+    effect2 && effect2.forEach((effect3) => {
+      if (effect3 !== activeEffect)
+        effect3.run();
+    });
+  }
 
   // packages/reactivity/src/baseHandler.ts
   var mutableHandlers = {
@@ -62,11 +91,16 @@ var VueReactivity = (() => {
       if (key === "__v_isReactive" /* IS_REACTIVE */) {
         return true;
       }
-      activeEffect;
+      track(target, "get", key);
       return Reflect.get(target, key, receiver);
     },
     set(target, key, value, receiver) {
-      return Reflect.set(target, key, value);
+      const oldValue = target[key];
+      const result = Reflect.set(target, key, value);
+      if (result !== oldValue) {
+        trigger(target, "set", key, result, oldValue);
+      }
+      return true;
     }
   };
 

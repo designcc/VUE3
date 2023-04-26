@@ -7,17 +7,19 @@
   <title>Document</title>
 </head>
 <body>
+  <div class="app"></div>
   <script src="./reactivity.global.js"></script>
   <script>
     const {reactive,effect} = VueReactivity
     const data = reactive({
       name: 'xb'
     })
-    debugger
     effect(() => {
-      debugger
-      data.name
+      document.querySelector('.app').innerHTML = `姓名：${data.name}`
     })
+    setTimeout(()=> {
+      data.name= 'lz'
+    },1000)
   </script>
 </body>
 </html>

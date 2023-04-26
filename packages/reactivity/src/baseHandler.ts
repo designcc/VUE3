@@ -1,4 +1,4 @@
-import { activeEffect } from "./effect"
+import { activeEffect, track, trigger } from "./effect"
 
 export const enum ReactiveFlags {
   IS_REACTIVE = '__v_isReactive'
@@ -9,10 +9,15 @@ export const mutableHandlers = {
     if(key === ReactiveFlags.IS_REACTIVE) {
       return true
     }
-    activeEffect
+    track(target, 'get', key)
     return Reflect.get(target,key,receiver)
   },
   set(target, key, value, receiver) {
-    return Reflect.set(target,key,value)
+    const oldValue = target[key]
+    const result = Reflect.set(target,key,value)
+    if(result !== oldValue) {
+      trigger(target, 'set', key, result, oldValue)
+    }
+    return true
   }
 }
