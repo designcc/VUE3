@@ -6,7 +6,7 @@ function cleanupEffect(effect) {
   }
   effect.deps.length = 0
 }
-class ReactiveEffect  {
+export class ReactiveEffect  {
   public active = true //这个是effect默认激活状态
   public parent = null //生成父子结构
   public deps = []
