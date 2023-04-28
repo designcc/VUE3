@@ -41,6 +41,7 @@ export function effect(fn,options:any ={}) {
   return runner
 }
 
+// 判断是否为相同依赖
 const targetMap = new WeakMap()
 export function track(target, type, key) {
   if(!activeEffect) return
@@ -52,29 +53,42 @@ export function track(target, type, key) {
   if(!dep) {
     depsMap.set(key,(dep= new Set()))
   }
-  let shouldTrack = !dep.has(activeEffect) //去重
-  if(shouldTrack) {
-    dep.add(activeEffect)
-    activeEffect.deps.push(dep) // 让effect记录对应的dep,清理时使用 实现双向绑定
+  tarckEffect(dep)
+}
+// 依赖收集
+export function tarckEffect(dep) {
+  if(activeEffect) {
+    let shouldTrack = !dep.has(activeEffect) //去重
+    if(shouldTrack) {
+      dep.add(activeEffect)
+      activeEffect.deps.push(dep) // 让effect记录对应的dep,清理时使用 实现双向绑定
+    }
   }
 }
+
+// 找到判断更新的effect
 // WackMap = {object:Map{name:Set-> effect}}
 export function trigger(target, type, key, value, oldValue) {
   const depsMap = targetMap.get(target)
   if(!depsMap) return // 触发的值不在模板中使用
   let effects = depsMap.get(key) //找到对应的effect
   if(effects) {
-    // 执行前拷贝一份，解决set删除新增为同一引用
-    effects = new Set(effects)
-    effects.forEach(effect => {
-      // 判断需要执行的effect是不是当前的effect 避免循环执行
-      if(effect !== activeEffect) {
-        if(effect.scheduler) {
-          effect.scheduler() //判断是否有用户的调度 有就使用用户调度
-        }else {
-          effect.run() //触发更新再次调用用户传进去的函数
-        }
-      }
-    })
+    triggerEffect(effects)
   }
+}
+
+// 触发更新effect
+export function triggerEffect(effects) {
+  // 执行前拷贝一份，解决set删除新增为同一引用
+  effects = new Set(effects)
+  effects.forEach(effect => {
+    // 判断需要执行的effect是不是当前的effect 避免循环执行
+    if(effect !== activeEffect) {
+      if(effect.scheduler) {
+        effect.scheduler() //判断是否有用户的调度 有就使用用户调度
+      }else {
+        effect.run() //触发更新再次调用用户传进去的函数进行更新
+      }
+    }
+  })
 }
