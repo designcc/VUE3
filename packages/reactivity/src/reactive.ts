@@ -1,6 +1,9 @@
 import { isObject } from "@vue/shared";
 import { ReactiveFlags, mutableHandlers } from "./baseHandler";
 
+export function isReactive(value) {
+  return !!(value && value[ReactiveFlags.IS_REACTIVE])
+}
 
 // 实现同一个对象代理多次返回同一个
 // 代理对象再次代理可以直接返回

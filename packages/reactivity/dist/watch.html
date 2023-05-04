@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+<body>
+  <div id="app"></div>
+  <script src="./reactivity.global.js"></script>
+  <script>
+    let waiting = false
+    const {reactive,effect,watch} = VueReactivity
+    const data = reactive({
+      name: 'xb'
+    })
+    let i = 2000
+    function getdata(timer) {
+      return new Promise((resolve,reject)=> {
+        setTimeout(()=> {
+          resolve(timer)
+        }, timer)
+      })
+    }
+    watch(()=> data.name,async function(newValue,oldValue,onCleanup){
+      let clear = false
+      onCleanup(() => {
+        clear = true
+      })
+      i -= 1000
+      let r = await getdata(i)
+      if(!clear) {app.innerHTML = r}
+      // console.log(newValue,oldValue);
+    })
+    data.name = 'xxx'
+    // data.name = 'ccc'
+    setTimeout(()=> {
+      data.name = 'ddd'
+    },2000)
+  </script>
+</body>
+</html>
