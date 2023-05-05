@@ -29,7 +29,7 @@ export function watch(source,cd) {
   }
   let oldValue
   const job = () => {
-    if(cleanup) cleanup()
+    if(cleanup) cleanup() //闭包缓存 使上一次的clear变成true 下一次watch触发上次watch清理
     const newValue = effect.run()
     cd(newValue, oldValue, onCleanup)
     oldValue = newValue

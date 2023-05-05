@@ -5,6 +5,7 @@ import { reactive } from "./reactive"
 export const enum ReactiveFlags {
   IS_REACTIVE = '__v_isReactive'
 }
+// get取值做track依赖收集  set修改值做trigger触发修改
 export const mutableHandlers = {
   get(target, key, receiver) {
     // 去代理对象上取值  reflect反射指向代理对象不是源对象target

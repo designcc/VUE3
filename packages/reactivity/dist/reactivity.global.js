@@ -22,7 +22,11 @@ var VueReactivity = (() => {
   __export(src_exports, {
     computer: () => computer,
     effect: () => effect,
+    proxyRefs: () => proxyRefs,
     reactive: () => reactive,
+    ref: () => ref,
+    toRef: () => toRef,
+    toRefs: () => toRefs,
     watch: () => watch
   });
 
@@ -250,6 +254,73 @@ var VueReactivity = (() => {
     };
     const effect2 = new ReactiveEffect(getter, job);
     oldValue = effect2.run();
+  }
+
+  // packages/reactivity/src/ref.ts
+  function toReactive(value) {
+    return isObject(value) ? reactive(value) : value;
+  }
+  var Refmpl = class {
+    constructor(rawValue) {
+      this.rawValue = rawValue;
+      this.dep = /* @__PURE__ */ new Set();
+      this.__v_isRef = true;
+      this._value = toReactive(rawValue);
+    }
+    get value() {
+      tarckEffect(this.dep);
+      return this._value;
+    }
+    set value(newValue) {
+      if (newValue !== this.rawValue) {
+        this._value = toReactive(newValue);
+        this.rawValue = newValue;
+        triggerEffect(this.dep);
+      }
+    }
+  };
+  function ref(value) {
+    return new Refmpl(value);
+  }
+  var ObjectRefImpl = class {
+    // 将.value属性代理到原始对象上
+    constructor(object, key) {
+      this.object = object;
+      this.key = key;
+    }
+    get value() {
+      return this.object[this.key];
+    }
+    set value(newValue) {
+      this.object[this.key] = newValue;
+    }
+  };
+  function toRef(object, key) {
+    return new ObjectRefImpl(object, key);
+  }
+  function toRefs(object) {
+    const result = isArray(object) ? new Array(object.length) : {};
+    for (let key in object) {
+      result[key] = toRef(object, key);
+    }
+    return result;
+  }
+  function proxyRefs(object) {
+    return new Proxy(object, {
+      get(target, key, receiver) {
+        let r = Reflect.get(target, key, receiver);
+        return r.__v_isRef ? r.value : r;
+      },
+      set(target, key, value, reactive2) {
+        let oldValue = target[key];
+        if (oldValue.__v_isRef) {
+          oldValue.value = value;
+          return true;
+        } else {
+          return Reflect.set(target, key, reactive2);
+        }
+      }
+    });
   }
   return __toCommonJS(src_exports);
 })();
