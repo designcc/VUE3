@@ -25,15 +25,116 @@ var VueRuntimeDom = (() => {
     render: () => render
   });
 
+  // packages/shared/src/index.ts
+  var isObject = (value) => {
+    return typeof value === "object" && value !== null;
+  };
+  var isString = (value) => {
+    return typeof value === "string";
+  };
+  var isArray = Array.isArray;
+
   // packages/runtime-core/src/renderer.ts
   function createRenderer(renderOptions2) {
+    let {
+      // 增加 删除 修改 查询
+      insert: hostInsert,
+      remove: hostRemove,
+      setElementText: hostSetElementText,
+      setText: hostSetText,
+      parentNode: hostParentNode,
+      nextSibling: hostNextSibling,
+      createElement: hostCreateElement,
+      createText: hostCreateText,
+      patchProp: hostPatchProp
+    } = renderOptions2;
+    const mountChildren = (children, container) => {
+      for (let i = 0; i < children.length; i++) {
+        patch(null, children[i], container);
+      }
+    };
+    const mountElement = (vnode, container) => {
+      let { type, props, children, shapeFlag } = vnode;
+      let el = vnode.el = hostCreateElement(type);
+      if (props) {
+        for (let key in props) {
+          hostPatchProp(el, key, null, props[key]);
+        }
+      }
+      if (shapeFlag & 8 /* TEXT_CHILDREN */) {
+        hostSetElementText(el, children);
+      } else if (shapeFlag & 16 /* ARRAY_CHILDREN */) {
+        mountChildren(children, el);
+      }
+      hostInsert(el, container);
+    };
+    const patch = (n1, n2, container) => {
+      if (n1 === n2)
+        return;
+      if (n1 == null) {
+        mountElement(n2, container);
+      } else {
+      }
+    };
     const render2 = (vnode, container) => {
+      if (vnode == null) {
+      } else {
+        patch(container._vnode || null, vnode, container);
+      }
+      container.vnode = vnode;
     };
     return { render: render2 };
   }
 
+  // packages/runtime-core/src/vnode.ts
+  function isVnode(value) {
+    return !!(value && value.__v_isVnode);
+  }
+  function createVnode(type, props, children = null) {
+    let shapeFlag = isString(type) ? 1 /* ELEMENT */ : 0;
+    const vnode = {
+      type,
+      props,
+      children,
+      el: null,
+      // 虚拟节点上对应的真是节点，后续diff算法
+      key: props == null ? void 0 : props["key"],
+      __v_isVnode: true,
+      shapeFlag
+    };
+    if (children) {
+      let type2 = 0;
+      if (isArray(children)) {
+        type2 = 16 /* ARRAY_CHILDREN */;
+      } else {
+        children = String(children);
+        type2 = 8 /* TEXT_CHILDREN */;
+      }
+      vnode.shapeFlag |= type2;
+    }
+    return vnode;
+  }
+
   // packages/runtime-core/src/h.ts
-  function h() {
+  function h(type, propsChildren, children) {
+    const l = arguments.length;
+    if (l === 2) {
+      if (isObject(propsChildren) && !isArray(propsChildren)) {
+        if (isVnode(propsChildren)) {
+          return createVnode(type, null, [propsChildren]);
+        }
+        return createVnode(type, propsChildren);
+      } else {
+        return createVnode(type, null, propsChildren);
+      }
+    } else {
+      if (l > 3) {
+        children = Array.from(arguments).slice(2);
+      } else if (l === 3 && isVnode(children)) {
+        children = [children];
+      }
+      return createVnode(type, propsChildren, children);
+    }
   }
 
   // packages/runtime-dom/src/nodeOps.ts
@@ -141,7 +242,6 @@ var VueRuntimeDom = (() => {
 
   // packages/runtime-dom/src/index.ts
   var renderOptions = Object.assign(nodeOps, { patchProp });
-  console.log(renderOptions);
   function render(vnode, container) {
     createRenderer(renderOptions).render(vnode, container);
   }

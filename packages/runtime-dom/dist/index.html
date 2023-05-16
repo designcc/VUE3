@@ -10,7 +10,8 @@
   <div id="app"></div>
   <script src="./runtime-dom.global.js"></script>
   <script>
-    const {createRenderer,h} = VueRuntimeDom
+    const {createRenderer,h,render} = VueRuntimeDom
+    render(h('h1',{style: {color:'red'},onClick:() => alert(1)}, [h('h1','123'),h('h1','567')]), app)
    
   </script>
 </body>
