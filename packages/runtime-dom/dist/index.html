@@ -12,10 +12,10 @@
   <script>
     const {createRenderer,h,render,Text} = VueRuntimeDom
     // render(h('div',{style: {color:'red'},onClick:() => alert(1)}, [h('span','123'),'1234']), app)
-    render(h('div',{style: {color:'red'}},'app'), app)
+    render(h('div',{style: {color:'red'}},[h('span',{key: 'a'},'xxx'), h('span',{key: 'a'},'ddd')]), app)
   //  render(h(Text,'hello'),app)
   setTimeout(()=> {
-    render(h('div',{style: {color:'blue'}},'hello'), app)
+    render(h('div',{style: {color:'blue'}},[h('span',{key: 'a'},'1xxx')]), app)
   },1000)
   </script>
 </body>

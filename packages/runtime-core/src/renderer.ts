@@ -14,19 +14,20 @@ export function createRenderer(renderOptions) {
     createText: hostCreateText,
     patchProp: hostPatchProp
   } = renderOptions
-  const normalize = (child) => {
-    if(isString(child)) {
-      return createVnode(Text, null, child)
+  const normalize = (child, i) => {
+    if(isString(child[i])) {
+      let vnode = createVnode(Text, null, child[i])
+      child[i] = vnode
     }
-    return child
+    return child[i]
   }
   const mountChildren = (children, container) => {
     for(let i = 0; i < children.length; i++) {
-      let child = normalize(children[i])
+      let child = normalize(children, i) // 处理后要进行替换， 否则children中存放的依旧是字符串
       patch(null, child, container)
     }
   }
-  const mountElement = (vnode,container) => {
+  const mountElement = (vnode,container,anchor) => {
     let { type, props, children, shapeFlag} = vnode
     let el = vnode.el = hostCreateElement(type) //将真实节点挂载到这个虚拟节点，后续复用节点更新
     if(props) {
@@ -39,7 +40,7 @@ export function createRenderer(renderOptions) {
     } else if (shapeFlag & ShapeFlags.ARRAY_CHILDREN) { // 数组
       mountChildren(children, el)
     }
-    hostInsert(el,container)
+    hostInsert(el,container,anchor)
   }
 
   const processText = (n1,n2,container) => {
@@ -59,7 +60,66 @@ export function createRenderer(renderOptions) {
     }
     for(let key in oldProps) { //老的里面没有 则直接删除
       if(newProps[key] == null) {
-        hostPatchProp(el,key,oldProps[key], null)
+        hostPatchProp(el,key,oldProps[key], undefined)
+      }
+    }
+  }
+
+  const unmountChildren = (children) => {
+    // 循环删除节点
+    for(let i=0;i<children.length; i++) {
+      unmount(children[i])
+    }
+  }
+  const patchKeyedChildren = (c1,c2,el) => { // 比较两个儿子的差异
+    let i = 0
+    let e1 = c1.length -1
+    let e2 = c2.length -1
+    // sync from start
+    while(i <= e1 && i <=e2) { // 有任何一方停止循环则直接跳出
+      const n1 = c1[i]
+      const n2 = c2[i]
+      if(isSameVnode(n1,n2)) {
+        patch(n1,n2,el) // 比较两个节点的属性和子节点
+      }else {
+        break;
+      }
+      i++
+    }
+    // sync from en
+    while(i<=e1 && i<=e2) {
+      const n1 = c1[e1]
+      const n2 = c2[e2]
+      if(isSameVnode(n1,n2)) {
+        patch(n1,n2,el) // 比较两个节点的属性和子节点
+      }else {
+        break;
+      }
+      e1--
+      e2--
+    }
+    //common sequence + mount
+    // i比e1大说明有新增
+    // i和e2之间的是新增的部分
+    if(i > e1) {
+      if(i <= e2) {
+        while (i <= e2) {
+          const nextPos = e2+1
+          // 根据下一个的索引来看参照物
+          const anchor = nextPos < c2.length ?  c2[nextPos].el : null
+          patch(null, c2[i],el,anchor) //创建新节点 放进容器
+          i++
+        }
+      }
+    } else if(i > e2) {
+      // common sequence + unmount
+      // i比e2大说明有要卸载
+      // i到e1之间的就是要卸载
+      if(i <= e1) {
+        while(i <= e1) {
+          unmount(c1[i])
+          i++
+        }
       }
     }
   }
@@ -68,6 +128,38 @@ export function createRenderer(renderOptions) {
     const c1 = n1 && n1.children
     const c2 = n2 && n2.children
     // children 文本 空null 数组
+    const prevShapeFlag = n1.shapeFlag
+    const shapeFlag = n2.shapeFlag
+    if(shapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      if(prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+        // 删除所有节点
+        // 文本 数组 （删除老儿子，设置文本内容）
+        unmountChildren(c1)
+      }
+      if(c1 !== c2) {
+        // 文本 文本 （更新文本即可）包括文本和空
+        hostSetElementText(el,c2)
+      }
+    }else {
+       if(prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+        if(shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+          // 数组 数组 （diff算法）
+          patchKeyedChildren(c1,c2,el)
+        }else {
+          //现在不是数组（文本和空）
+          unmountChildren(c1)
+        }
+       }else {
+        if(prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+          // 数组 文本 (清除文本，进行挂载)
+          hostCreateText(el, '')
+        }
+        if(shapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+          //数组 文本 （清除文本进行挂载）
+          mountChildren(c2,el)
+        }
+       }
+    }
   }
   const patchElement = (n1,n2,container) => { // 先复用节点 比较属性和儿子
     let el = n2.el = n1.el
@@ -76,17 +168,17 @@ export function createRenderer(renderOptions) {
     patchProps(oldProps,newProps, el)
     patchChildren(n1,n2,el)
   }
-  const processElement = (n1,n2,container) => {
+  const processElement = (n1,n2,container,anchor) => {
     if(n1 == null) {
     // 初次渲染
     // 后续还有组件的初次渲染，目前是元素的初始化渲染
-      mountElement(n2, container)
+      mountElement(n2, container,anchor)
     } else {
       // 更新流程 patchElement()
       patchElement(n1,n2,container)
     }
   }
-  const patch = (n1,n2,container) => { //核心patch方法
+  const patch = (n1,n2,container,anchor = null) => { //核心patch方法
     if(n1 === n2) return;
     if(n1 && !isSameVnode(n1,n2)) { // 判断两个元素是否相同 不同卸载
       unmount(n1) // 删除老的
@@ -99,7 +191,7 @@ export function createRenderer(renderOptions) {
         break
       default:
         if(shapeFlag & ShapeFlags.ELEMENT) {
-          processElement(n1,n2,container)
+          processElement(n1,n2,container,anchor)
         }
     }
   }
