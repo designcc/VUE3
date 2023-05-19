@@ -71,6 +71,50 @@ var VueRuntimeDom = (() => {
     return vnode;
   }
 
+  // packages/runtime-core/src/sequene.ts
+  function getSequene(arr) {
+    const len = arr.length;
+    const result = [0];
+    const p = new Array(len).fill(0);
+    let start;
+    let end;
+    let middle;
+    let resultLastIndex;
+    for (let i2 = 0; i2 < len; i2++) {
+      let arrI = arr[i2];
+      if (arrI !== 0) {
+        resultLastIndex = result[result.length - 1];
+        if (arr[resultLastIndex] < arrI) {
+          result.push(i2);
+          p[i2] = resultLastIndex;
+          continue;
+        }
+        start = 0;
+        end = result.length - 1;
+        while (start < end) {
+          middle = (start + end) / 2 | 0;
+          if (arr[result[middle]] < arrI) {
+            start = middle + 1;
+          } else {
+            end = middle;
+          }
+        }
+        if (arr[result[end]] > arrI) {
+          result[end] = i2;
+          p[i2] = result[end - 1];
+        }
+      }
+    }
+    let i = result.length;
+    let last = result[i - 1];
+    while (i-- > 0) {
+      result[i] = last;
+      last = p[last];
+    }
+    return result;
+  }
+  console.log(getSequene([5, 3, 4, 0, 5]));
+
   // packages/runtime-core/src/renderer.ts
   function createRenderer(renderOptions2) {
     let {
@@ -177,6 +221,40 @@ var VueRuntimeDom = (() => {
           while (i <= e1) {
             unmount(c1[i]);
             i++;
+          }
+        }
+      }
+      let s1 = i;
+      let s2 = i;
+      const keyToNewIndexMap = /* @__PURE__ */ new Map();
+      for (let i2 = s2; i2 <= e2; i2++) {
+        keyToNewIndexMap.set(c2[i2].key, i2);
+      }
+      const toBePatched = e2 - s2 + 1;
+      const newIndexToOldIndexMap = new Array(toBePatched).fill(0);
+      for (let i2 = s1; i2 <= e1; i2++) {
+        const oldChild = c1[i2];
+        let newIndex = keyToNewIndexMap.get(oldChild.key);
+        if (newIndex == void 0) {
+          unmount(oldChild);
+        } else {
+          newIndexToOldIndexMap[newIndex - s2] = i2 + 1;
+          patch(oldChild, c2[newIndex], el);
+        }
+      }
+      let increment = getSequene(newIndexToOldIndexMap);
+      let j = increment.length - 1;
+      for (let i2 = toBePatched - 1; i2 >= 0; i2--) {
+        let index = i2 + s2;
+        let current = c2[index];
+        let anchor = index + 1 < c2.length ? c2[index + 1].el : null;
+        if (newIndexToOldIndexMap[i2] === 0) {
+          patch(null, current, el, anchor);
+        } else {
+          if (i2 != increment[j]) {
+            hostInsert(current.el, el, anchor);
+          } else {
+            j--;
           }
         }
       }

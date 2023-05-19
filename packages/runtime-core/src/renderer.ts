@@ -1,5 +1,6 @@
 import { ShapeFlags, isString } from "@vue/shared"
 import { Text, createVnode, isSameVnode } from "./vnode"
+import { getSequene } from "./sequene"
 
 export function createRenderer(renderOptions) {
   let {
@@ -144,6 +145,10 @@ export function createRenderer(renderOptions) {
       }
     } // 到这里新老属性的儿子的对比，没有移动位置
     // 移动位置
+
+    // 获取最长递增子序列
+    let increment = getSequene(newIndexToOldIndexMap)
+    let j = increment.length - 1
     for(let i = toBePatched-1; i>=0; i--) {
       let index = i + s2
       let current = c2[index]; //找到当前的元素 然后往前插入新的元素
@@ -152,8 +157,13 @@ export function createRenderer(renderOptions) {
         // 新增
         patch(null,current,el,anchor)
       } else {
-        // 不是0说明存在新旧比对 倒叙插入
-        hostInsert(current.el, el, anchor)
+        if(i != increment[j]){
+          // 不是0说明存在新旧比对 倒叙插入
+          hostInsert(current.el, el, anchor)
+        } else {
+          j--
+        }
+        
       }
       // 最长递增序列来实现 乱序已存在元素调整位置  vue2在移动元素会有浪费
     }
