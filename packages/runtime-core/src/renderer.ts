@@ -122,7 +122,43 @@ export function createRenderer(renderOptions) {
         }
       }
     }
+    //乱序比较
+    let s1 = i
+    let s2 = i
+    const keyToNewIndexMap = new Map() // key => newIndex
+    for (let i = s2; i<= e2; i++) {
+      keyToNewIndexMap.set(c2[i].key, i)
+    }
+    // 循环老的元素， 看下新的里面有没有， 如果有说明要比较差异，没有要添加到列表中，老的有新的没有要删除
+    const toBePatched = e2 - s2 + 1 //新的总个数
+    const newIndexToOldIndexMap = new Array(toBePatched).fill(0) //记录是否比对过的映射表
+    for(let i=s1;i<=e1;i++) {
+      const oldChild = c1[i] //老的孩子
+      let newIndex = keyToNewIndexMap.get(oldChild.key) //用老的孩子去新的里面找
+      if(newIndex == undefined) {
+        unmount(oldChild) //卸载多余的
+      } else {
+        // 新的位置对应老的位置， 如果数组放的值>0说明已经patch过了
+        newIndexToOldIndexMap[newIndex-s2] = i+1 // 用来标记当前patch过的结果
+        patch(oldChild, c2[newIndex], el)
+      }
+    } // 到这里新老属性的儿子的对比，没有移动位置
+    // 移动位置
+    for(let i = toBePatched-1; i>=0; i--) {
+      let index = i + s2
+      let current = c2[index]; //找到当前的元素 然后往前插入新的元素
+      let anchor = index + 1 < c2.length ? c2[index+1].el : null
+      if(newIndexToOldIndexMap[i] === 0) {
+        // 新增
+        patch(null,current,el,anchor)
+      } else {
+        // 不是0说明存在新旧比对 倒叙插入
+        hostInsert(current.el, el, anchor)
+      }
+      // 最长递增序列来实现 乱序已存在元素调整位置  vue2在移动元素会有浪费
+    }
   }
+  
   const patchChildren = (n1,n2,el) => {
     // 比较两个虚拟节点儿子的差异， el就是当前的父节点
     const c1 = n1 && n1.children
